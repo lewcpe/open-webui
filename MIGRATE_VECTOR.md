@@ -9,73 +9,70 @@ By migrating the vectors directly, you can switch databases quickly while preser
 The migration process involves:
 1. Setting up the target vector database (e.g., PostgreSQL with pgvector, or Milvus).
 2. Running the provided migration script to copy all collections and vectors from ChromaDB to the target database.
-3. Running a verification script to ensure the migration was successful.
-4. Updating your Open WebUI configuration to use the new vector database.
+3. Updating your Open WebUI configuration to use the new vector database.
 
 ## Prerequisites
 
-- Your current Open WebUI instance with ChromaDB data.
+- Your current Open WebUI instance with ChromaDB data (typically located in the `DATA_DIR/vector_db` directory).
 - The target vector database installed and running.
-- Python dependencies for the target vector database installed in your Open WebUI environment.
+- Python dependencies for the target vector database installed in your Python environment.
 
 ## Supported Target Databases
 
-The migration script supports migrating from Chroma to any database supported by Open WebUI, but is primarily tested with:
+The standalone migration script supports migrating from Chroma to:
 - `pgvector`
 - `milvus`
-- `qdrant`
-- `pinecone`
-- `opensearch`
-- `elasticsearch`
 
 ## Migration Steps
 
 ### 1. Run the Migration Script
 
-A migration script is provided at `backend/open_webui/retrieval/vector/migrate.py`. You need to run this script with the appropriate environment variables to connect to both your source (Chroma) and target databases.
+A migration script is provided at `backend/open_webui/retrieval/vector/migrate.py`. This script is standalone and can be executed independently from the Open WebUI server.
 
 For example, to migrate from Chroma to PGVector:
 
 ```bash
 cd backend/
-export VECTOR_DB=pgvector
-export PGVECTOR_DB_URL=postgresql://user:password@localhost:5432/dbname
-# The script will automatically read from your existing Chroma configuration (e.g. DATA_DIR/vector_db)
-python -m open_webui.retrieval.vector.migrate
+
+# Install the necessary dependencies if not already installed
+pip install chromadb psycopg2-binary SQLAlchemy
+
+# Run the migration script
+python -m open_webui.retrieval.vector.migrate \
+    --source-path /app/backend/data/vector_db \
+    --target-db pgvector \
+    --pgvector-url postgresql://user:password@localhost:5432/dbname
 ```
 
-To migrate to Milvus:
+To migrate from Chroma to Milvus:
 
 ```bash
 cd backend/
-export VECTOR_DB=milvus
-export MILVUS_URI=http://localhost:19530
-export MILVUS_DB=default
-python -m open_webui.retrieval.vector.migrate
+
+# Install the necessary dependencies if not already installed
+pip install chromadb pymilvus
+
+# Run the migration script
+python -m open_webui.retrieval.vector.migrate \
+    --source-path /app/backend/data/vector_db \
+    --target-db milvus \
+    --milvus-uri http://localhost:19530
 ```
 
 The script will:
-- Connect to ChromaDB.
-- Connect to the target vector database specified by `VECTOR_DB`.
+- Connect to your local ChromaDB directory.
+- Connect to the target vector database.
 - Iterate through all collections in ChromaDB.
-- Extract all vectors, text, and metadata.
-- Insert them into the target database.
+- Extract all vectors, text, and metadata in batches.
+- Upsert them into the target database.
 
 ### 2. Verify the Migration
 
-After the migration completes, you can verify that all collections and document counts match using the verification script:
-
-```bash
-cd backend/
-# Keep the same environment variables set as before
-python -m open_webui.retrieval.vector.verify_migration
-```
-
-This script will report whether the collections and item counts match between ChromaDB and your target database.
+After the migration completes, you can start the Open WebUI server to verify that the target vector database contains all the collections and item counts. The script includes detailed logs to confirm each migrated collection's count.
 
 ### 3. Update Configuration
 
-Once the migration is verified, you need to update your Open WebUI environment variables so the application uses the new vector database.
+Once the migration is finished, you need to update your Open WebUI environment variables so the application uses the new vector database.
 
 For PGVector, add or update the following in your `.env` file or environment:
 
